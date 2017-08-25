@@ -88,6 +88,9 @@ class ActorCritic(object):
         self.gamma = 0.99
         self.actor = Actor(n_observation, n_action,name='actor{}'.format(self.name))
         self.critic = Critic(n_observation, n_action, name='critic{}'.format(self.name))
+        self.trainable_dict = {}
+        self.trainable_dict.update(self.actor.get_trainable_dict())
+        self.trainable_dict.update(self.critic.get_trainable_dict())
     def predict(self,obs_batch): # from oberservation to Q prediction
         action_val = self.actor.predict(obs_batch)
         return self.critic.predict(obs_batch,action_val)
@@ -108,6 +111,8 @@ class ActorCritic(object):
     def async_assign(self,net_2):
         self.actor.async_assign(net_2.actor)
         self.critic.async_assign(net_2.critic)
+    def get_trainable_dict(self):
+        return self.trainable_dict
 
 from collections import deque
 class Memory(object):
@@ -127,6 +132,7 @@ class Memory(object):
 
 if __name__ == '__main__':
 	import gym
+	tau = 0.01
 	max_episode = 300
 	memory_warmup = 1000
 	save_path = 'DDPG_net_Class.ckpt'
@@ -141,6 +147,9 @@ if __name__ == '__main__':
 	memory = Memory()
 	init = tf.global_variables_initializer()
 	saver = tf.train.Saver()
+	ac_trainable_dict = ac.get_trainable_dict()
+	async_assign_op = [var.assign((1-tau)*var+tau+tau*ac_trainable_dict[key]) \
+	                   for key, var in ac_target.get_trainable_dict().items()]
 	with tf.Session() as sess:
 	    init.run()
 	    while episode < max_episode:
@@ -151,15 +160,13 @@ if __name__ == '__main__':
 	        if iteration >= memory_warmup:
 	            memory_batch = memory.sample_batch()
 	            ac.train(ac_target,memory_batch)
-	            ac_target.async_assign(ac)
+	            #ac_target.async_assign(ac)
+	            sess.run(async_assign_op)
 	        iteration += 1
 	        episode_steps += 1
 	        if done:
-	            if iteration>= memory_warmup:
-	            	obs_batch = np.array([item[0] for item in memory_batch])
-	            	print(', Q_average {}'.format(np.mean(ac.predict(obs_batch))))
-	            else:
-	            	print()
+	            obs_batch = np.array([item[0] for item in memory_batch])
+	            print(', Q_average {}'.format(np.mean(ac.predict(obs_batch))))
 	            obs = env.reset()
 	            episode += 1
 	            episode_steps = 0
@@ -167,3 +174,4 @@ if __name__ == '__main__':
 	                saver.save(sess,save_path)
 	        else:
 	            obs = next_obs
+        
