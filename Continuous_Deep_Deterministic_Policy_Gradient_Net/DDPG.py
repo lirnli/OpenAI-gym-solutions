@@ -150,28 +150,31 @@ if __name__ == '__main__':
 	ac_trainable_dict = ac.get_trainable_dict()
 	async_assign_op = [var.assign((1-tau)*var+tau+tau*ac_trainable_dict[key]) \
 	                   for key, var in ac_target.get_trainable_dict().items()]
-	with tf.Session() as sess:
-	    init.run()
-	    while episode < max_episode:
-	        print('\riter {}, ep {}, ep steps {}'.format(iteration,episode,episode_steps),end='')
-	        action = ac.actor.predict(np.reshape(obs,[1,-1]))[0]
-	        next_obs, reward, done,info = env.step(action)
-	        memory.append([obs,action,reward,next_obs,done])
-	        if iteration >= memory_warmup:
-	            memory_batch = memory.sample_batch()
-	            ac.train(ac_target,memory_batch)
-	            #ac_target.async_assign(ac)
-	            sess.run(async_assign_op)
-	        iteration += 1
-	        episode_steps += 1
-	        if done:
-	            obs_batch = np.array([item[0] for item in memory_batch])
-	            print(', Q_average {}'.format(np.mean(ac.predict(obs_batch))))
-	            obs = env.reset()
-	            episode += 1
-	            episode_steps = 0
-	            if episode%5 == 0:
-	                saver.save(sess,save_path)
-	        else:
-	            obs = next_obs
+    with tf.Session() as sess:
+        init.run()
+        while episode < max_episode:
+            print('\riter {}, ep {}, ep steps {}'.format(iteration,episode,episode_steps),end='')
+            action = ac.actor.predict(np.reshape(obs,[1,-1]))[0]
+            next_obs, reward, done,info = env.step(action)
+            memory.append([obs,action,reward,next_obs,done])
+            if iteration >= memory_warmup:
+                memory_batch = memory.sample_batch()
+                ac.train(ac_target,memory_batch)
+                #ac_target.async_assign(ac)
+                sess.run(async_assign_op)
+            iteration += 1
+            episode_steps += 1
+            if done:
+                if iteration>=memory_warmup:
+                    obs_batch = np.array([item[0] for item in memory_batch])
+                    print(', Q_average {}'.format(np.mean(ac.predict(obs_batch))))
+                else:
+                    print()
+                obs = env.reset()
+                episode += 1
+                episode_steps = 0
+                if episode%5 == 0:
+                    saver.save(sess,save_path)
+            else:
+                obs = next_obs
         
