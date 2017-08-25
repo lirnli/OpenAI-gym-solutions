@@ -155,8 +155,11 @@ if __name__ == '__main__':
 	        iteration += 1
 	        episode_steps += 1
 	        if done:
-	            obs_batch = np.array([item[0] for item in memory_batch])
-	            print(', Q_average {}'.format(np.mean(ac.predict(obs_batch))))
+	            if iteration>= memory_warmup:
+	            	obs_batch = np.array([item[0] for item in memory_batch])
+	            	print(', Q_average {}'.format(np.mean(ac.predict(obs_batch))))
+	            else:
+	            	print()
 	            obs = env.reset()
 	            episode += 1
 	            episode_steps = 0
